@@ -1,26 +1,56 @@
 import { Injectable } from '@nestjs/common';
-import { CreateAuthDto } from './dto/create-auth.dto';
-import { UpdateAuthDto } from './dto/update-auth.dto';
+import { InjectRepository } from '@nestjs/typeorm';
+import { UserEntity } from '../user/entities/user.entity';
+import { Repository } from 'typeorm';
+import { OtpEntity } from '../user/entities/otp.entity';
+import { SendOtpDto } from './dto/auth.dto';
+import { randomInt } from 'crypto';
 
 @Injectable()
 export class AuthService {
-  create(createAuthDto: CreateAuthDto) {
-    return 'This action adds a new auth';
-  }
+ constructor(
+  @InjectRepository(UserEntity)
+  private userRepository: Repository<UserEntity>,
+  @InjectRepository(OtpEntity)
+  private otpRepository: Repository<OtpEntity>
+ ) {}
 
-  findAll() {
-    return `This action returns all auth`;
-  }
+ async sendOtp(otpDto : SendOtpDto) {
+  const {mobile} = otpDto;
+  let user = await this.userRepository.findOneBy({mobile});
 
-  findOne(id: number) {
-    return `This action returns a #${id} auth`;
-  }
 
-  update(id: number, updateAuthDto: UpdateAuthDto) {
-    return `This action updates a #${id} auth`;
+  if(!user){
+    user = this.userRepository.create({
+      mobile,
+    })
+    user = await this.userRepository.save(user)
   }
+  this.createOtpForUser(user)
+  return {
+    message : "کد با موفقیت ارسال گردید"
+  }  
+}
 
-  remove(id: number) {
-    return `This action removes a #${id} auth`;
-  }
+
+
+
+ async createOtpForUser(user : UserEntity) {
+    const expiresIn = new Date(new Date().getTime() + 1000 * 60 * 2);
+    const code = randomInt(10000,99999).toString();
+    let otp = await this.otpRepository.findOneBy({userId : user.id})
+      if(otp){
+        otp.code = code ;
+        otp.expires_in = expiresIn;
+      } else {
+        otp = this.otpRepository.create({
+          code ,
+          expires_in : expiresIn,
+          userId : user.id
+        })
+      }
+      otp = await this.otpRepository.save(otp);
+      user.otpId = otp.id;
+      await this.userRepository.save(user);
+    }
 }

@@ -1,13 +1,15 @@
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { UserEntity } from '../user/entities/user.entity';
 import { Repository } from 'typeorm';
 import { OtpEntity } from '../user/entities/otp.entity';
-import { CheckOtpDto, SendOtpDto } from './dto/auth.dto';
+import { CheckOtpDto, SendOtpDto } from './dto/otp.dto';
 import { randomInt } from 'crypto';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { TokensPayload } from './types/payload';
+import { LoginDto, SignupDto } from './dto/basic.dto';
+import {hashSync , genSaltSync, compareSync} from 'bcrypt'
 
 @Injectable()
 export class AuthService {
@@ -124,5 +126,52 @@ async validateToken(token : string){
 }
 async throwUnAuthorizedError(){
   throw new UnauthorizedException("لطفا ابتدا وارد حساب کاربری خود شوید!")
+}
+async checkEmail(email : string) {
+  const user = await this.userRepository.findOneBy({email});
+  if(user) throw new ConflictException("این ایمیل قبلا ثبت شده است!")
+}
+async checkMobile(mobile : string) {
+  const user = await this.userRepository.findOneBy({mobile});
+  if(user) throw new ConflictException("این شماره موبایل قبلا ثبت شده است!")
+}
+async signup(signupDto : SignupDto){
+  const {email,first_name,last_name,mobile,password} = signupDto;
+  await this.checkEmail(email);
+  await this.checkMobile(mobile);
+  const salt = genSaltSync(10)
+  let hashedPassword = hashSync(password , salt)
+  const user = this.userRepository.create({
+    first_name,
+    last_name,
+    mobile,
+    email,
+    password : hashedPassword, 
+    mobile_verify: false,
+  });
+  await this.userRepository.save(user);
+  return {
+    message : "ثبت نام با موفقیت انجام شد. میتوانید وارد سایت شوید."
+  }
+}
+async login(loginDto : LoginDto){
+  const {email,password} = loginDto;
+  const user = await this.userRepository.findOneBy({email});
+  if(!user){
+    throw new UnauthorizedException("ایمیل یا رمز عبور وارد شده معتبر نیست!")
+  }
+  const isPasswordValid = compareSync(password , user.password);
+  if(!isPasswordValid){
+    throw new UnauthorizedException("ایمیل یا رمز عبور وارد شده معتبر نیست!")
+  }
+  const {accessToken, refreshToken} = await this.createUserTokens({
+    id : user.id,
+    mobile : user.mobile
+  })
+  return {
+    message : "ورود با موفقیت انجام شد.",
+    accessToken,
+    refreshToken
+  }
 }
 }

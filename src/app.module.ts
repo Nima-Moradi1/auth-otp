@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { TypeOrmDbConfig } from './config/typeorm.config';
 import { UserModule } from './modules/user/user.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { JwtModule } from '@nestjs/jwt';
 
 @Module({
   imports: [
@@ -12,7 +13,7 @@ import { AuthModule } from './modules/auth/auth.module';
       useClass : TypeOrmDbConfig, 
       inject : [TypeOrmDbConfig],
     }), 
-    UserModule, AuthModule
+    UserModule, AuthModule , JwtModule
   ],
   controllers: [],
   // All Injectables should be listed in the Providers too

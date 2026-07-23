@@ -7,6 +7,7 @@ import { CheckOtpDto, SendOtpDto } from './dto/auth.dto';
 import { randomInt } from 'crypto';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { TokensPayload } from './types/payload';
 
 @Injectable()
 export class AuthService {
@@ -59,19 +60,15 @@ async checkOtp(otpDto : CheckOtpDto){
       mobile_verify : true
     })
   }
-  const accessToken = this.jwtService.sign({id:user.id , mobile}, {
-    secret : this.configService.get("Jwt.accessTokenSecret"), 
-    expiresIn : "3d"
+  const {accessToken, refreshToken} = await this.createUserTokens({
+    id : user.id,
+    mobile
   })
-  const refreshToken = this.jwtService.sign({id:user.id , mobile}, {
-    secret : this.configService.get("Jwt.refreshTokenSecret"), 
-    expiresIn : "90d"
-  })
-    return {
-      message : "شما با موفقیت وارد حساب کاربری شدید!", 
-      accessToken,
-      refreshToken
-    }
+  return {
+    message : "کد با موفقیت تایید شد!",
+    accessToken,
+    refreshToken
+  }
 }
 async createOtpForUser(user : UserEntity) {
     const expiresIn = new Date(new Date().getTime() + 1000 * 60 * 2);
@@ -93,5 +90,19 @@ async createOtpForUser(user : UserEntity) {
       otp = await this.otpRepository.save(otp);
       user.otpId = otp.id;
       await this.userRepository.save(user);
+}
+async createUserTokens(payload : TokensPayload){
+  const accessToken = this.jwtService.sign(payload, {
+    secret : this.configService.get("Jwt.accessTokenSecret"), 
+    expiresIn : "3d"
+  })
+  const refreshToken = this.jwtService.sign(payload, {
+    secret : this.configService.get("Jwt.refreshTokenSecret"), 
+    expiresIn : "90d"
+  })
+    return {
+      accessToken,
+      refreshToken
+    }
 }
 }

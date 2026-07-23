@@ -105,4 +105,24 @@ async createUserTokens(payload : TokensPayload){
       refreshToken
     }
 }
+async validateToken(token : string){
+  try {
+      const payload = this.jwtService.verify<TokensPayload>(token , {
+    secret : this.configService.get("Jwt.accessTokenSecret")
+  });
+  if(typeof payload === "object" && payload?.id) {
+    const user = await this.userRepository.findOneBy({id : payload.id});
+    if(!user){
+    this.throwUnAuthorizedError()
+    }
+    return user
+  }
+    this.throwUnAuthorizedError()
+  } catch (error) {
+    this.throwUnAuthorizedError()
+  }
+}
+async throwUnAuthorizedError(){
+  throw new UnauthorizedException("لطفا ابتدا وارد حساب کاربری خود شوید!")
+}
 }
